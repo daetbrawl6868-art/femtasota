@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NVIDIA Store — RTX Edition</title>
+    <style>
+        :root {
+            --nvidia-green: #76b900;
+            --dark-bg: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-light: #f4f4f4;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--dark-bg);
+            color: var(--text-light);
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: #000;
+            padding: 1rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 2px solid var(--nvidia-green);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--nvidia-green);
+        }
+
+        .cart-icon {
+            cursor: pointer;
+            background: var(--nvidia-green);
+            color: black;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .container {
+            padding: 2rem 5%;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: transform 0.3s;
+            border: 1px solid #444;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: var(--nvidia-green);
+        }
+
+        .card img {
+            width: 100%;
+            height: 180px;
+            object-fit: contain;
+            background: #333;
+            border-radius: 5px;
+        }
+
+        .price {
+            font-size: 1.4rem;
+            color: var(--nvidia-green);
+            margin: 10px 0;
+        }
+
+        .btn {
+            background: var(--nvidia-green);
+            border: none;
+            padding: 10px 20px;
+            color: black;
+            font-weight: bold;
+            border-radius: 3px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        /* Модальное окно корзины */
+        #cart-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            width: 90%;
+            max-width: 500px;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #444;
+            padding: 10px 0;
+        }
+
+        .payment-methods {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-direction: column;
+        }
+
+        select {
+            padding: 10px;
+            background: #444;
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">NVIDIA GEFORCE SHOP</div>
+    <div class="cart-icon" onclick="toggleCart()">🛒 Корзина (<span id="cart-count">0</span>)</div>
+</header>
+
+<div class="container" id="products">
+    </div>
+
+<div id="cart-modal">
+    <div class="modal-content">
+        <h2>Ваша корзина</h2>
+        <div id="cart-items-list"></div>
+        <h3>Итого: <span id="total-price">0</span> ₽</h3>
+        
+        <div class="payment-methods">
+            <label>Способ оплаты:</label>
+            <select id="pay-method">
+                <option value="card">Банковская карта</option>
+                <option value="crypto">Криптовалюта (BTC/USDT)</option>
+                <option value="sbp">СБП (Система быстрых платежей)</option>
+            </select>
+            <button class="btn" onclick="checkout()">Оплатить заказ</button>
+            <button class="btn" style="background:#555; color:white; margin-top:5px;" onclick="toggleCart()">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const products = [
+        { id: 1, name: "GeForce RTX 4090", price: 210000, img: "https://via.placeholder.com/200x150/76b900/000000?text=RTX+4090" },
+        { id: 2, name: "GeForce RTX 4080 Super", price: 125000, img: "https://via.placeholder.com/200x150/76b900/000000?text=RTX+4080+S" },
+        { id: 3, name: "GeForce RTX 4070 Ti", price: 85000, img: "https://via.placeholder.com/200x150/76b900/000000?text=RTX+4070+Ti" },
+        { id: 4, name: "GeForce RTX 4060", price: 35000, img: "https://via.placeholder.com/200x150/76b900/000000?text=RTX+4060" }
+    ];
+
+    let cart = [];
+
+    // Рендер товаров
+    function renderProducts() {
+        const container = document.getElementById('products');
+        container.innerHTML = products.map(p => `
+            <div class="card">
+                <img src="${p.img}" alt="${p.name}">
+                <h3>${p.name}</h3>
+                <div class="price">${p.price.toLocaleString()} ₽</div>
+                <button class="btn" onclick="addToCart(${p.id})">В корзину</button>
+            </div>
+        `).join('');
+    }
+
+    function addToCart(id) {
+        const product = products.find(p => p.id === id);
+        cart.push(product);
+        updateCartUI();
+    }
+
+    function updateCartUI() {
+        document.getElementById('cart-count').innerText = cart.length;
+        const list = document.getElementById('cart-items-list');
+        const total = cart.reduce((sum, item) => sum + item.price, 0);
+        
+        list.innerHTML = cart.map((item, index) => `
+            <div class="cart-item">
+                <span>${item.name}</span>
+                <span>${item.price.toLocaleString()} ₽</span>
+            </div>
+        `).join('');
+        
+        document.getElementById('total-price').innerText = total.toLocaleString();
+    }
+
+    function toggleCart() {
+        const modal = document.getElementById('cart-modal');
+        modal.style.display = modal.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function checkout() {
+        if (cart.length === 0) {
+            alert("Корзина пуста!");
+            return;
+        }
+        const method = document.getElementById('pay-method').value;
+        alert(`Заказ на сумму ${document.getElementById('total-price').innerText} ₽ оформлен!\nСпособ оплаты: ${method}\n\nСпасибо за покупку в NVIDIA Store!`);
+        cart = [];
+        updateCartUI();
+        toggleCart();
+    }
+
+    renderProducts();
+</script>
+
+</body>
+</html>
